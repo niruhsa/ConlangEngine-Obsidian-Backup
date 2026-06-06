@@ -75,6 +75,9 @@ export class BackupApiServer {
 
 			this.server.listen(this.port, '127.0.0.1', () => {
 				this._lastError = null;
+				// Enforce retention on startup so the configured limit applies
+				// to backups created in prior sessions.
+				this.enforceMaxBackupsAll();
 				resolve();
 			});
 		});
@@ -99,10 +102,46 @@ export class BackupApiServer {
 
 	updateConfig(port: number, maxBackups: number): void {
 		const needsRestart = port !== this.port;
+		const maxChanged = maxBackups !== this.maxBackups;
 		this.port = port;
 		this.maxBackups = maxBackups;
 		if (needsRestart && this.isRunning) {
 			void this.restart();
+		}
+		// Re-enforce retention immediately when the limit changes so the
+		// running server reflects the new setting without a restart.
+		if (maxChanged) {
+			this.enforceMaxBackupsAll();
+		}
+	}
+
+	/** List all project IDs (subdirectories) under the data dir. */
+	private listProjectIds(): string[] {
+		let entries: string[];
+		try {
+			entries = fs.readdirSync(this.dataDir);
+		} catch {
+			return [];
+		}
+
+		const ids: string[] = [];
+		for (const entry of entries) {
+			try {
+				if (fs.statSync(path.join(this.dataDir, entry)).isDirectory()) {
+					ids.push(entry);
+				}
+			} catch {
+				// skip unreadable
+			}
+		}
+		return ids;
+	}
+
+	/** Enforce the max-backups limit across every project on disk. */
+	enforceMaxBackupsAll(): void {
+		if (this.maxBackups <= 0) return;
+		for (const projectId of this.listProjectIds()) {
+			this.enforceMaxBackups(projectId);
 		}
 	}
 
@@ -329,6 +368,18 @@ export class BackupApiServer {
 				return;
 			}
 
+			// DELETE /api/projects/:projectId - Delete entire project + backups
+			if (
+				method === 'DELETE' &&
+				pLen === 3 &&
+				pathParts[0] === 'api' &&
+				pathParts[1] === 'projects' &&
+				projectId
+			) {
+				void this.handleDeleteProject(projectId, res, origin);
+				return;
+			}
+
 			// 404 for unmatched routes
 			this.respond(res, 404, { error: 'Not found' }, origin);
 		} catch (err) {
@@ -494,6 +545,50 @@ export class BackupApiServer {
 			totalSizeBytes,
 			backups: backupsWithSizes,
 		}, origin);
+	}
+
+	private async handleDeleteProject(
+		projectId: string,
+		res: http.ServerResponse,
+		origin?: string,
+	): Promise<void> {
+		const dir = this.getProjectDir(projectId);
+
+		// Guard against path traversal: resolved dir must stay under dataDir.
+		const resolvedDir = path.resolve(dir);
+		const resolvedRoot = path.resolve(this.dataDir);
+		if (
+			resolvedDir === resolvedRoot ||
+			!resolvedDir.startsWith(resolvedRoot + path.sep)
+		) {
+			this.respond(res, 400, { error: 'Invalid project ID' }, origin);
+			return;
+		}
+
+		let stat: fs.Stats;
+		try {
+			stat = fs.statSync(resolvedDir);
+		} catch {
+			this.respond(res, 404, { error: `Project "${projectId}" not found` }, origin);
+			return;
+		}
+		if (!stat.isDirectory()) {
+			this.respond(res, 404, { error: `Project "${projectId}" not found` }, origin);
+			return;
+		}
+
+		const removedBackups = this.listBackups(projectId).length;
+
+		try {
+			fs.rmSync(resolvedDir, { recursive: true, force: true });
+			this.respond(res, 200, {
+				deleted: projectId,
+				removedBackups,
+			}, origin);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			this.respond(res, 500, { error: msg }, origin);
+		}
 	}
 
 	private async handleCreate(

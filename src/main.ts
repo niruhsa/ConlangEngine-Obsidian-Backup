@@ -15,7 +15,6 @@ import type {
 export default class ConlangBackupPlugin extends Plugin {
 	settings!: ConlangBackupSettings;
 	private server: BackupApiServer | null = null;
-	private autoSaveTimerId: number | null = null;
 	private isSaving = false;
 
 	async onload() {
@@ -54,6 +53,12 @@ export default class ConlangBackupPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'conlang-backup-delete-project',
+			name: 'Delete entire project',
+			callback: () => this.deleteProject(),
+		});
+
+		this.addCommand({
 			id: 'conlang-backup-server-start',
 			name: 'Start API server',
 			callback: () => void this.startServer(),
@@ -66,11 +71,9 @@ export default class ConlangBackupPlugin extends Plugin {
 		});
 
 		await this.startServer();
-		this.startAutoSaveIfEnabled();
 	}
 
 	async onunload() {
-		this.stopAutoSave();
 		await this.stopServer();
 	}
 
@@ -84,7 +87,6 @@ export default class ConlangBackupPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.startAutoSaveIfEnabled();
 	}
 
 	// ---- API Server management ----
@@ -217,43 +219,6 @@ export default class ConlangBackupPlugin extends Plugin {
 		onSubmit: (projectId: string) => void,
 	): void {
 		new ProjectIdPromptModal(this.app, title, onSubmit).open();
-	}
-
-	// ---- Auto-save ----
-
-	private startAutoSaveIfEnabled() {
-		this.stopAutoSave();
-		if (!this.settings.autoSave) return;
-
-		const intervalMs = (this.settings.autoSaveInterval || 5) * 60 * 1000;
-		this.autoSaveTimerId = window.setInterval(() => {
-			void this.autoSaveBackup();
-		}, intervalMs);
-
-		this.registerInterval(this.autoSaveTimerId);
-	}
-
-	private stopAutoSave() {
-		if (this.autoSaveTimerId !== null) {
-			window.clearInterval(this.autoSaveTimerId);
-			this.autoSaveTimerId = null;
-		}
-	}
-
-	/** Pick up the backup file on disk, derive projectId from it, save to server. */
-	private async autoSaveBackup() {
-		if (this.isSaving) return;
-		try {
-			const payload = await this.readBackupPayload();
-			if (!payload) return;
-			const projectId = this.extractProjectId(payload);
-			if (!projectId) return;
-			const client = this.getClient();
-			const response = await client.createBackup(projectId, payload);
-			console.log(`Auto-saved backup: ${response.version}`);
-		} catch (error) {
-			console.error('Auto-save failed:', error);
-		}
 	}
 
 	// ---- Command handlers ----
@@ -399,6 +364,28 @@ export default class ConlangBackupPlugin extends Plugin {
 		});
 	}
 
+	async deleteProject() {
+		this.promptForProjectId('Delete entire project', (projectId) => {
+			new ConfirmModal(
+				this.app,
+				'Delete entire project',
+				`This permanently deletes project "${projectId}" and ALL of its backups. This cannot be undone.`,
+				async () => {
+					const notice = new Notice(`Deleting project ${projectId}...`, 0);
+					try {
+						await this.getClient().deleteProject(projectId);
+						notice.hide();
+						new Notice(`Deleted project ${projectId}`, 5000);
+					} catch (error) {
+						notice.hide();
+						const msg = error instanceof Error ? error.message : String(error);
+						new Notice(`Delete failed: ${msg}`, 8000);
+					}
+				},
+			).open();
+		});
+	}
+
 	async forceUpdateBackup() {
 		this.promptForProjectId('Force update backup', async (projectId) => {
 			const client = this.getClient();
@@ -453,6 +440,51 @@ export default class ConlangBackupPlugin extends Plugin {
 }
 
 // ---- Modals ----
+
+/** Modal that asks the user to confirm a destructive action. */
+class ConfirmModal extends Modal {
+	private titleText: string;
+	private message: string;
+	private onConfirm: () => void;
+
+	constructor(app: App, titleText: string, message: string, onConfirm: () => void) {
+		super(app);
+		this.titleText = titleText;
+		this.message = message;
+		this.onConfirm = onConfirm;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+
+		contentEl.createEl('h3', { text: this.titleText });
+		contentEl.createEl('p', { text: this.message });
+
+		new Setting(contentEl)
+			.addButton((button) =>
+				button
+					.setButtonText('Delete')
+					.setWarning()
+					.onClick(() => {
+						this.close();
+						this.onConfirm();
+					}),
+			)
+			.addButton((button) =>
+				button
+					.setButtonText('Cancel')
+					.onClick(() => {
+						this.close();
+					}),
+			);
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
 
 /** Modal that prompts user to enter a project ID. */
 class ProjectIdPromptModal extends Modal {

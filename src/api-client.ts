@@ -99,6 +99,21 @@ export class BackupApiClient {
 		}
 	}
 
+	async deleteProject(projectId: string): Promise<void> {
+		const response = await this.fetch(
+			`/api/projects/${encodeURIComponent(projectId)}`,
+			{ method: 'DELETE' },
+		);
+
+		if (!response.ok) {
+			if (response.status === 404) {
+				throw new Error(`Project ${projectId} not found`);
+			}
+			const text = await response.text().catch(() => 'Unknown error');
+			throw new Error(`Failed to delete project (${response.status}): ${text}`);
+		}
+	}
+
 	async updateBackup(
 		projectId: string,
 		version: string,

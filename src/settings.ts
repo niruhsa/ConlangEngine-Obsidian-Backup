@@ -5,8 +5,6 @@ export interface ConlangBackupSettings {
 	apiPort: number;
 	apiKey: string;
 	maxBackups: number;
-	autoSave: boolean;
-	autoSaveInterval: number;
 	backupDir: string;
 }
 
@@ -14,8 +12,6 @@ export const DEFAULT_SETTINGS: ConlangBackupSettings = {
 	apiPort: 3000,
 	apiKey: '',
 	maxBackups: 0,
-	autoSave: false,
-	autoSaveInterval: 5,
 	backupDir: 'conlang-backups',
 };
 
@@ -267,34 +263,6 @@ export class BackupSettingsTab extends PluginSettingTab {
 						this.plugin.settings.maxBackups = isNaN(num) ? 0 : num;
 						await this.plugin.saveSettings();
 						this.plugin.updateServerConfig();
-					}),
-			);
-
-		// Auto-save toggle
-		new Setting(containerEl)
-			.setName('Auto-save enabled')
-			.setDesc('Automatically backup to server at regular intervals')
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.autoSave)
-					.onChange(async (value) => {
-						this.plugin.settings.autoSave = value;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		// Auto-save interval
-		new Setting(containerEl)
-			.setName('Auto-save interval (minutes)')
-			.setDesc('How often to automatically backup (min: 1)')
-			.addText((text) =>
-				text
-					.setPlaceholder('5')
-					.setValue(String(this.plugin.settings.autoSaveInterval))
-					.onChange(async (value) => {
-						const num = parseInt(value, 10);
-						this.plugin.settings.autoSaveInterval = isNaN(num) ? 5 : Math.max(1, num);
-						await this.plugin.saveSettings();
 					}),
 			);
 

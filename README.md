@@ -1,7 +1,48 @@
 # Conlang Engine Backup REST API
 This is an obsidian plugin to enable auto-backing up of ConlangEngine export files and then auto-loading them too.
 
-## Overview
+**IMPORTANT**: Please note this is a desktop only plugin since mobile usage is unstable for web servers running in the background. If I ever get mobile to work properly I will update the functionality.
+
+## Install to obsidian
+### Downloading
+Please checkout the project to your `<vault path>/.obsidian/plugins` folder. You should end up with a folder named `<vault path>/.obsidian/plugins/Conlang-Engine-Obsidian-Backup`.
+
+This can be achieved by either download the zip from the releases tab (or downloading the latest changes as a zip), or via `git` commands:
+```bash
+# cd into your obsidian vaults plugins directory
+cd /path/to/your/vault/.obsidian/plugins
+
+# Clone the repo and cd into it
+git clone https://github.com/niruhsa/ConlangEngine-Obsidian-Backup
+cd ConlangEngine-Obsidian-Backup
+
+# Checkout the latest release tag (e.g. v0.1.0)
+git checkout $(git describe --tags git rev-list --tags --max-count=1)
+```
+### Enabling in Obsidian
+In your obsidian vault, go to `Settings` -> `Community Plugins` and under `Installed Plugins` there should be a new plugin called `Conlang Engine Backup`, enable it and click on the settings icon for it.
+
+There are a few settings:
+#### API Port
+This is the API port that the Conlang Engine website connects to for backup functionality - leave as default if you do not know anything about this.
+
+#### Server Controls
+If you are experiencing issues, you can Start/Stop/Restart the API server with these controls - leave alone if you do not know anything about this.
+
+#### Test Connection
+Simple functionality to test the API server is up and running from within obsidian for debugging purposes.
+
+#### Backup Directory (Important)
+This is where you set the folder in your vault that you want the plugin to save your backups to, for me personally I save them in `.conlang-backups`, that way they do not appear in obsidian since it has a `.` prefix on the folder, but the plugin is still able to access them.
+
+You can sync these files using Obsidian Sync or a third-party syncing implementation (such as Syncthing) to sync between your devices.
+
+#### Max backups to keep
+The maximum amount of backed up versions to keep, defaults to 0 which is unlimited. Unless you are EXTREMELY low on storage (and each project only use kilobytes of storage without typeface data), I recommend leaving this as default and purging the versions every now and then by setting this option to a number like 100, then putting it back to 0.
+
+This option will ONLY keep the latest X versions if set to anything other than 100.
+
+## Overview - Developer information
 Local HTTP API server for backing up and restoring Conlang Engine projects. Ships as an Obsidian plugin but the API is standalone — implement client in any app (web, mobile, CLI).
 
 Server is an embedded Node.js HTTP server bound to `127.0.0.1` only. Stores backups as JSON files on disk under a configurable directory.
