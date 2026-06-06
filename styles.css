@@ -1,8 +1,31 @@
-/*
+/* Conlang Engine Backup Plugin Styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* API Status Indicator Styles */
+.api-status-container {
+	padding: 10px 0;
+	margin-bottom: 10px;
+}
 
-If your plugin does not need CSS, delete this file.
+.api-status-label {
+	font-weight: bold;
+	margin-right: 5px;
+}
 
-*/
+.api-status-url {
+	color: var(--text-faint);
+	font-size: 0.9em;
+}
+
+.api-status-online {
+	color: var(--color-green);
+	font-weight: bold;
+}
+
+.api-status-offline {
+	color: var(--color-red);
+	font-weight: bold;
+}
+
+.api-status-checking {
+	color: var(--text-muted);
+}

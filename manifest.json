@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "conlang-engine-backup",
+	"name": "Conlang Engine Backup",
 	"version": "1.0.0",
 	"minAppVersion": "1.0.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": false
+	"description": "Backup and restore Conlang Engine projects via REST API — saves full config, lexicon, project archive, fonts, and glyphs",
+	"author": "Conlang Engine",
+	"authorUrl": "https://conlangengine.vercel.app",
+	"fundingUrl": "https://conlangengine.vercel.app",
+	"isDesktopOnly": true
 }
