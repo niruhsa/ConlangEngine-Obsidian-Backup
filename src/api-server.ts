@@ -517,6 +517,7 @@ export class BackupApiServer {
 
 			const version = this.getNextVersion(projectId);
 			const filePath = this.getVersionPath(projectId, version);
+			fs.mkdirSync(this.getProjectDir(projectId), { recursive: true });
 			fs.writeFileSync(filePath, JSON.stringify(body, null, 2), 'utf-8');
 			this.enforceMaxBackups(projectId);
 			this.respond(res, 201, {
